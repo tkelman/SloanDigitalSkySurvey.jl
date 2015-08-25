@@ -1,5 +1,8 @@
 #!/usr/bin/python
-# Load a processed image from tractor.
+#
+# Load a processed image from the tractor.  Note that as of writing,
+# the masking was incorrect.
+# https://github.com/dstndstn/tractor
 
 from tractor.sdss import *
 import argparse
