@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Read a sample psf function using tractor for comparison with julia.
 # Based on util/test-psf.py in astrometry.net:
 # https://github.com/dstndstn/astrometry.net
