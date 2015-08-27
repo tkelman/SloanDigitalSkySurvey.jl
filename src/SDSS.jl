@@ -258,7 +258,8 @@ function mask_image!(mask_img, field_dir, run_num, camcol_num, field_num, band;
             @assert rmin[block] + 1 >= 1
 
             # Some notes:
-            # See astrometry.net//sdss/common.py:SetMaskedPixels, which I currently assume is correct.
+            # See astrometry.net//sdss/common.py:SetMaskedPixels, which I believe
+            # is currently incorrect.
             # - In contrast with  julia, the numpy matrix index range [3:5, 3:5] contains four
             #   pixels, not six.  However, if the numpy is correct, then fpM files contain
             #   many bad rows that don't get masked at all since cmin == cmax
