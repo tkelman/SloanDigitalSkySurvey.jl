@@ -75,15 +75,21 @@ function test_world_to_pixel()
     world_center = WCS.pixel_to_world(wcs, pix_center)
     world_loc = WCS.pixel_to_world(wcs, pix_loc)
 
-    wcs_jacobian = WCS.pixel_world_jacobian(wcs, pix_center);
+    function test_jacobian(wcs, pix_center, world_center)
+      wcs_jacobian = WCS.pixel_world_jacobian(wcs, pix_center);
 
-    pix_loc_test1 = WCS.world_to_pixel(wcs, world_loc)
-    pix_loc_test2 =
-      WCS.world_to_pixel(wcs_jacobian, world_center, pix_center, world_loc)
+      pix_loc_test1 = WCS.world_to_pixel(wcs, world_loc)
+      pix_loc_test2 =
+        WCS.world_to_pixel(wcs_jacobian, world_center, pix_center, world_loc)
 
-    # Note that the accuracy of the linear approximation isn't great.
-    @test_approx_eq(pix_loc_test1, pix_loc)
-    @test_approx_eq_eps(pix_loc_test2, pix_loc, 1e-2)
+      # Note that the accuracy of the linear approximation isn't great.
+      @test_approx_eq(pix_loc_test1, pix_loc)
+      @test_approx_eq_eps(pix_loc_test2, pix_loc, 1e-2)
+    end
+
+    @test WCS.pixel_world_jacobian(WCS.wcs_id, pix_center) == [1.0 0.0; 0.0 1.0];
+
+    test_jacobian(wcs, pix_center, world_center)
 end
 
 
