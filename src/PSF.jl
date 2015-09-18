@@ -50,7 +50,8 @@ Args:
  Note that this is a little incoherent -- we use something like log loss
  to fit the mixture and squared error loss to fit the scale.
 """ ->
-function fit_psf_gaussians(psf::Array{Float64, 2}; tol = 1e-9, max_iter = 500, verbose=false)
+function fit_psf_gaussians(
+  psf::Array{Float64, 2}; tol = 1e-9, max_iter = 500, verbose=false)
 
     function sigma_for_gmm(sigma_mat)
         # Returns a matrix suitable for storage in the field gmm.Σ
@@ -59,7 +60,9 @@ function fit_psf_gaussians(psf::Array{Float64, 2}; tol = 1e-9, max_iter = 500, v
 
     # TODO: Is it ok that it is coming up negative in some points?
     if (any(psf .< 0))
-        warn("Some psf values are negative.")
+        if verbose
+            warn("Some psf values are negative.")
+        end
         psf[ psf .< 0 ] = 0
     end
 
@@ -147,7 +150,9 @@ function fit_psf_gaussians(psf::Array{Float64, 2}; tol = 1e-9, max_iter = 500, v
             fit_done = true
         end
 
-        println("Fitting psf: $iter: $err_diff")
+        if verbose
+          println("Fitting psf: $iter: $err_diff")
+        end
     end
 
     # Get the scaling constant that minimizes the squared error.
