@@ -1,4 +1,5 @@
+#!/usr/bin/env julia
 
-include("test_sdss.jl")
-include("test_wcs.jl")
-
+using SloanDigitalSkySurvey
+include(joinpath(Pkg.dir("SloanDigitalSkySurvey"), "test", "test_sdss.jl"))
+include(joinpath(Pkg.dir("SloanDigitalSkySurvey"), "test", "test_wcs.jl"))
