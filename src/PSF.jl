@@ -55,7 +55,7 @@ function fit_psf_gaussians(
 
     function sigma_for_gmm(sigma_mat)
         # Returns a matrix suitable for storage in the field gmm.Σ
-        Triangular(GaussianMixtures.cholinv(sigma_mat), :U, false)
+        GaussianMixtures.cholinv(sigma_mat)
     end
 
     # TODO: Is it ok that it is coming up negative in some points?
