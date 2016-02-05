@@ -46,7 +46,7 @@ pixel_graph_masked[pixel_graph_masked .>= clip] = clip
 # Get the object location in pixel coordinates.
 obj_loc  = Float64[cat_df[cat_df[:objid] .== objid, :ra][1],
                    cat_df[cat_df[:objid] .== objid, :dec][1]]
-obj_px = WCS.world_to_pixel(wcs, obj_loc)
+obj_px = WCSApprox.world_to_pixel(wcs, obj_loc)
 
 PyPlot.figure()
 PyPlot.plt.subplot(1, 2, 1)

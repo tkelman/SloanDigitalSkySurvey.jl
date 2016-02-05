@@ -1,9 +1,3 @@
-using SloanDigitalSkySurvey
-using Base.Test
-using DataFrames
-
-import SDSS
-
 println("Running sdss tests.")
 
 const field_dir =

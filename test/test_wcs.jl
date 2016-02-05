@@ -1,19 +1,15 @@
-using SloanDigitalSkySurvey
-using Base.Test
+println("Running WCSUtils tests.")
 
-import SDSS
-import WCS
-
-println("Running WCS tests.")
+import WCS: world_to_pix, pix_to_world
 
 const dat_dir = joinpath(Pkg.dir("SloanDigitalSkySurvey"), "dat")
 
+"Test that the identity WCSTransform works as expected."
 function test_id_wcs()
-    rand_coord = rand(10, 2)
-    @assert WCS.pixel_to_world(WCS.wcs_id, rand_coord) == rand_coord
-    @assert WCS.world_to_pixel(WCS.wcs_id, rand_coord) == rand_coord
+    rand_coord = rand(2, 10)
+    @test pix_to_world(WCSUtils.wcs_id, rand_coord) == rand_coord
+    @test world_to_pix(WCSUtils.wcs_id, rand_coord) == rand_coord
 end
-
 
 function test_pixel_deriv_to_world_deriv()
     field_dir = joinpath(dat_dir, "sample_field")
@@ -32,8 +28,8 @@ function test_pixel_deriv_to_world_deriv()
         Float64[2 * pix_loc[1], 0.5 ]
     end
 
-    function test_fun_world(world_loc::Array{Float64, 1}, wcs::WCSLIB.wcsprm)
-        pix_loc = WCS.world_to_pixel(wcs, world_loc)
+    function test_fun_world(world_loc::Array{Float64, 1}, wcs)
+        pix_loc = WCSUtils.world_to_pix(wcs, world_loc)
         test_fun(pix_loc)
     end
 
@@ -42,7 +38,7 @@ function test_pixel_deriv_to_world_deriv()
     pix_loc = Float64[5, 5]
     pix_loc_1 = pix_loc + pix_del * [1, 0]
     pix_loc_2 = pix_loc + pix_del * [0, 1]
-    world_loc = WCS.pixel_to_world(wcs, pix_loc)
+    world_loc = pix_to_world(wcs, pix_loc)
     world_loc_1 = world_loc + world_del * [1, 0]
     world_loc_2 = world_loc + world_del * [0, 1]
 
@@ -54,13 +50,13 @@ function test_pixel_deriv_to_world_deriv()
                            (test_fun_world(world_loc_2, wcs) -
                             test_fun_world(world_loc, wcs)) / world_del ]
 
-    relative_err = (WCS.pixel_deriv_to_world_deriv(wcs, pix_deriv, pix_loc) -
+    relative_err = (WCSUtils.pixel_deriv_to_world_deriv(wcs, pix_deriv, pix_loc) -
                     world_deriv) ./ abs(world_deriv)
     @test_approx_eq_eps relative_err [ 0 0 ] 1e-3
 end
 
 
-function test_world_to_pixel()
+function test_world_to_pix()
     field_dir = joinpath(dat_dir, "sample_field")
     run_num = "003900"
     camcol_num = "6"
@@ -72,22 +68,22 @@ function test_world_to_pixel()
 
     pix_center = Float64[0.5 * size(nelec, 1), 0.5 * size(nelec, 1)]
     pix_loc = pix_center + [5., 3.]
-    world_center = WCS.pixel_to_world(wcs, pix_center)
-    world_loc = WCS.pixel_to_world(wcs, pix_loc)
+    world_center = pix_to_world(wcs, pix_center)
+    world_loc = pix_to_world(wcs, pix_loc)
 
     function test_jacobian(wcs, pix_center, world_center)
-      wcs_jacobian = WCS.pixel_world_jacobian(wcs, pix_center);
+      wcs_jacobian = WCSUtils.pixel_world_jacobian(wcs, pix_center);
 
-      pix_loc_test1 = WCS.world_to_pixel(wcs, world_loc)
-      pix_loc_test2 =
-        WCS.world_to_pixel(wcs_jacobian, world_center, pix_center, world_loc)
+      pix_loc_test1 = world_to_pix(wcs, world_loc)
+      pix_loc_test2 = world_to_pix(wcs_jacobian, world_center, pix_center,
+                                   world_loc)
 
       # Note that the accuracy of the linear approximation isn't great.
       @test_approx_eq(pix_loc_test1, pix_loc)
       @test_approx_eq_eps(pix_loc_test2, pix_loc, 1e-2)
     end
 
-    @test WCS.pixel_world_jacobian(WCS.wcs_id, pix_center) == [1.0 0.0; 0.0 1.0];
+    @test WCSUtils.pixel_world_jacobian(WCSUtils.wcs_id, pix_center) == [1.0 0.0; 0.0 1.0];
 
     test_jacobian(wcs, pix_center, world_center)
 end
@@ -95,4 +91,4 @@ end
 
 test_id_wcs()
 test_pixel_deriv_to_world_deriv()
-test_world_to_pixel()
+test_world_to_pix()

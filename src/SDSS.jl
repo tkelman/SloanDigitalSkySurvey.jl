@@ -2,12 +2,12 @@ module SDSS
 
 VERSION < v"0.4.0-dev" && using Docile
 
-import WCSLIB
 import DataFrames
 import FITSIO
 import Grid
-import PSF
 import WCS
+
+import ..PSF
 
 const band_letters = ['u', 'g', 'r', 'i', 'z']
 
@@ -130,7 +130,8 @@ Returns:
  - sky_x: The x coordinates at which to evaluate sky_grid to match nelec.
  - sky_y: The y coordinates at which to evaluate sky_grid to match nelec.
  - sky_image: The sky interpolated to the original image size.
- - wcs: A wcsprm object for converting between world and pixel coordinates.
+ - wcs: A WCS.WCSTransform object for convert between world and pixel
+   coordinates.
 
 The meaing of the frame data structures is thoroughly documented here:
 http://data.sdss3.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
@@ -153,7 +154,7 @@ function load_raw_field(field_dir, run_num, camcol_num, field_num, b, gain)
 
     # Get the WCS coordinates.
     header_str = FITSIO.read_header(img_fits[1], ASCIIString)
-    ((wcs,), nrejected) = WCSLIB.wcspih(header_str)
+    wcs = WCS.from_header(header_str)[1]
 
     # These are the column types (not currently used).
     ctype = [FITSIO.read_key(img_fits[1], "CTYPE1")[1],
