@@ -74,8 +74,8 @@ function fit_psf_gaussians(
 
     # The function we're trying to match.
     psf_scale = sum(psf)
-    psf_mat = Float64[ psf[int(x_row[1]), int(x_row[2])] / psf_scale for
-                       x_row=x_prod ];
+    psf_mat = Float64[psf[round(Int, x_row[1]), round(Int, x_row[2])] /
+                      psf_scale for x_row=x_prod ];
 
     # Use the GaussianMixtures package to evaluate our likelihoods.  In order to
     # avoid automatically choosing an initialization point, hard-code three

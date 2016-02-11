@@ -1,7 +1,6 @@
-julia 0.3
-DualNumbers
+julia 0.4
 FITSIO
-WCSLIB
+WCS 0.1.1
 DataFrames
 Docile
 Grid

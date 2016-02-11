@@ -1,5 +1,8 @@
 #!/usr/bin/env julia
 
-using SloanDigitalSkySurvey
-include(joinpath(Pkg.dir("SloanDigitalSkySurvey"), "test", "test_sdss.jl"))
-include(joinpath(Pkg.dir("SloanDigitalSkySurvey"), "test", "test_wcs.jl"))
+using Base.Test
+using DataFrames
+import SloanDigitalSkySurvey: SDSS, PSF, WCSUtils
+
+include("test_sdss.jl")
+include("test_wcs.jl")
