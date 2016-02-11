@@ -1,8 +1,6 @@
-using SloanDigitalSkySurvey
+import SloanDigitalSkySurvey: SDSS, PSF, WCSUtils
 using Base.Test
 using DataFrames
-
-import SDSS
 
 # PyPlot is only a dependency for this example, so it's not in the REQUIRE file.
 using PyPlot
@@ -46,7 +44,7 @@ pixel_graph_masked[pixel_graph_masked .>= clip] = clip
 # Get the object location in pixel coordinates.
 obj_loc  = Float64[cat_df[cat_df[:objid] .== objid, :ra][1],
                    cat_df[cat_df[:objid] .== objid, :dec][1]]
-obj_px = WCSApprox.world_to_pixel(wcs, obj_loc)
+obj_px = WCSUtils.world_to_pix(wcs, obj_loc)
 
 PyPlot.figure()
 PyPlot.plt.subplot(1, 2, 1)
