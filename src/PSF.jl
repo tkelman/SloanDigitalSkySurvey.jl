@@ -2,6 +2,8 @@ module PSF
 
 VERSION < v"0.4.0-dev" && using Docile
 
+import ForwardDiff
+import Optim
 import GaussianMixtures
 
 
@@ -165,63 +167,70 @@ function fit_psf_gaussians_em(
 end
 
 
+
+
+
+
+sigma_min = diagm([1e-2, 1e-2])
+weight_min = 1e-2
+
 function wrap_parameters(
     mu_vec::Vector{Vector{Float64}},
     sigma_vec::Vector{Matrix{Float64}},
     weight_vec::Vector{Float64})
 
   @assert length(mu_vec) == length(sigma_vec) == length(weight_vec)
-  K = length(mu_vec)
+  local K = length(mu_vec)
 
   # Two mean parameters, three covariance parameters,
   # and one weight per component.
-  par = zeros(K * 6)
+  local par = zeros(K * 6)
   for k = 1:K
     offset = (k - 1) * 6
     par[offset + (1:2)] = mu_vec[k]
-    sigma_chol = chol(sigma_vec[k])
-    par[offset + 3] = sigma_chol[1, 1]
+    sigma_chol = chol(sigma_vec[k] - sigma_min)
+    par[offset + 3] = log(sigma_chol[1, 1])
     par[offset + 4] = sigma_chol[1, 2]
-    par[offset + 5] = sigma_chol[2, 2]
-    par[offset + 6] = weight_vec[k]
+    par[offset + 5] = log(sigma_chol[2, 2])
+    par[offset + 6] = log(weight_vec[k] - weight_min)
   end
 
   par
 end
 
-function unwrap_parameters(par::Vector{Float64})
-  K = round(Int, length(par) / 6)
+function unwrap_parameters{T <: Number}(par::Vector{T})
+  local K = round(Int, length(par) / 6)
   @assert K == length(par) / 6
 
-  mu_vec = Array(Vector{Float64}, K)
-  sigma_vec = Array(Matrix{Float64}, K)
-  weight_vec = zeros(Float64, K)
+  local mu_vec = Array(Vector{T}, K)
+  local sigma_vec = Array(Matrix{T}, K)
+  local weight_vec = zeros(T, K)
 
   for k = 1:K
     offset = (k - 1) * 6
     mu_vec[k] = par[offset + (1:2)]
     sigma_chol_vec = par[offset + (3:5)]
-    sigma_chol = Float64[sigma_chol_vec[1] sigma_chol_vec[2];
-                         sigma_chol_vec[2] sigma_chol_vec[3]]
-    sigma_vec[k] = sigma_chol' * sigma_chol
-    weight_vec[k] = par[offset + 6]
+    sigma_chol = T[exp(sigma_chol_vec[1]) sigma_chol_vec[2];
+                   0.0                    exp(sigma_chol_vec[3])]
+    sigma_vec[k] = sigma_chol' * sigma_chol + sigma_min
+    weight_vec[k] = exp(par[offset + 6]) + weight_min
   end
 
   mu_vec, sigma_vec, weight_vec
 end
 
 
-function evaluate_psf_at_point(
+function evaluate_psf_at_point{T <: Number}(
     x::Vector{Float64},
-    mu_vec::Vector{Vector{Float64}},
-    sigma_vec::Vector{Matrix{Float64}},
-    weight_vec::Vector{Float64})
+    mu_vec::Vector{Vector{T}},
+    sigma_vec::Vector{Matrix{T}},
+    weight_vec::Vector{T})
 
   @assert length(mu_vec) == length(sigma_vec) == length(weight_vec)
-  K = length(mu_vec)
+  local K = length(mu_vec)
 
   @assert length(x) == 2
-  pdf = 0.0
+  local pdf = 0.0
   for k = 1:K
     z = x - mu_vec[k]
     log_pdf = -0.5 * dot(z, sigma_vec[k] \ z) -
@@ -233,22 +242,11 @@ function evaluate_psf_at_point(
 end
 
 
-mu_vec = Vector{Float64}[ Float64[1, 2], Float64[-1, -2], Float64[1, -1] ]
-sigma_vec = Array(Matrix{Float64}, 3)
-sigma_vec[1] = Float64[ 1 0.1; 0.1 1]
-sigma_vec[2] = Float64[ 1 0.3; 0.3 2]
-sigma_vec[3] = Float64[ 0.5 0.2; 0.2 0.5]
-weight_vec = Float64[0.4, 0.6, 0.1]
 
-par = wrap_parameters(mu_vec, sigma_vec, weight_vec)
-mu_vec_test, sigma_vec_test, weight_vec_test = unwrap_parameters(par)
-
-im = [ evaluate_psf_at_point([Float64(x) / 10, Float64(y) / 10],
-       mu_vec, sigma_vec, weight_vec) for x=(-50:50), y=(-50:50) ];
-
-
-
-
+import ForwardDiff.value
+function ForwardDiff.value(x::Float64)
+  x
+end
 
 @doc """
 Fit a mixture of 2d Gaussians to a PSF image (evaluated at a single point).
@@ -271,7 +269,7 @@ Args:
  to fit the mixture and squared error loss to fit the scale.
 """ ->
 function fit_psf_gaussians(
-    psf::Array{Float64, 2}; tol = 1e-9, max_iter = 500, verbose=false, K=3)
+    psf::Array{Float64, 2}; tol = 1e-9, max_iter = 500, verbose=false)
 
   if (any(psf .< 0))
       if verbose
@@ -280,103 +278,61 @@ function fit_psf_gaussians(
       psf[ psf .< 0 ] = 0
   end
 
-
   # Data points at which the psf is evaluated in matrix form.
   psf_center = Float64[ (size(psf, i) - 1) / 2 + 1 for i=1:2 ]
-  x_prod = [ Float64[i, j] for i=1:size(psf, 1), j=1:size(psf, 2) ]
-  x_mat = Float64[ x_row[col] for x_row=x_prod, col=1:2 ]
-  x_mat = broadcast(-, x_mat, psf_center')
+  x_mat = [ Float64[i, j] - psf_center for i=1:size(psf, 1), j=1:size(psf, 2) ]
 
-  # The function we're trying to match.
-  psf_scale = sum(psf)
-  psf_mat = Float64[psf[round(Int, x_row[1]), round(Int, x_row[2])] /
-                    psf_scale for x_row=x_prod ];
+  # Imagining the psf as a density, get an approximation for the covariance.
+  psf_starting_cov  =
+    sum([ psf[i, j]  * x_mat[i, j] * x_mat[i, j]' for
+        i in 1:size(psf, 1), j=1:size(psf, 2) ]) / sum(psf)
 
-  # Use the GaussianMixtures package to evaluate our likelihoods.  In order to
-  # avoid automatically choosing an initialization point, hard-code three
-  # gaussians for now.  Ignore their initialization, which would not be
-  # weighted by the psf.
-  gmm = GaussianMixtures.GMM(3, x_mat; kind=:full, nInit=0)
-
-  # Get the scale for the starting point from the whole image.
-  psf_starting_var = x_mat' * (x_mat .* psf_mat)
-
-  # Hard-coded initialization.
-  gmm.μ[1, :] = Float64[0, 0]
-  gmm.Σ[1] = sigma_for_gmm(psf_starting_var)
-
-  gmm.μ[2, :] = -Float64[0.2, 0.2]
-  gmm.Σ[2] = sigma_for_gmm(psf_starting_var)
-
-  gmm.μ[3, :] = Float64[0.2, 0.2]
-  gmm.Σ[3] = sigma_for_gmm(psf_starting_var)
-
-  gmm.w = ones(gmm.n) / gmm.n
-
-  iter = 1
-  err_diff = Inf
-  last_err = Inf
-  fit_done = false
-
-  # post contains the posterior information about the values of the
-  # mixture as well as the probabilities of each component.
-  post = GaussianMixtures.gmmposterior(gmm, x_mat)
-
-  while !fit_done
-      # Update gmm using last value of post.  post[1] contains
-      # posterior probabilities of the indicators.
-      z = post[1] .* psf_mat
-      z_sum = collect(sum(z, 1))
-      new_w = z_sum / sum(z_sum)
-      gmm.w = new_w
-      for d=1:gmm.n
-          if new_w[d] > 1e-6
-              new_mean = sum(x_mat .* z[:, d], 1) / z_sum[d]
-              x_centered = broadcast(-, x_mat, new_mean)
-              x_cov = x_centered' * (x_centered .* z[:, d]) / z_sum[d]
-
-              gmm.μ[d, :] = new_mean
-              gmm.Σ[d] = sigma_for_gmm(x_cov)
-          else
-              warn("Component $d has very small probability.")
-          end
-      end
-
-      # Get next posterior and check for convergence.  post[2] contains
-      # the log densities at each point.
-      post = GaussianMixtures.gmmposterior(gmm, x_mat)
-      gmm_fit = exp(post[2]) * gmm.w;
-      err = mean((gmm_fit - psf_mat) .^ 2)
-      err_diff = abs(last_err - err)
-      if verbose
-          println("$iter: err=$err err_diff=$err_diff")
-      end
-
-      last_err = err
-      if isnan(err)
-          error("NaN in MVN PSF fit.")
-      end
-
-      iter = iter + 1
-      if err_diff < tol
-          println("Tolerance reached ($err_diff < $tol)")
-          fit_done = true
-      elseif iter >= max_iter
-          warn("PSF MVN fit: max_iter exceeded")
-          fit_done = true
-      end
-
-      if verbose
-        println("Fitting psf: $iter: $err_diff")
-      end
+  function render_psf{T <: Number}(par::Vector{T})
+    local mu_vec, sigma_vec, weight_vec
+    mu_vec, sigma_vec, weight_vec = unwrap_parameters(par)
+    gmm_psf =
+      T[ evaluate_psf_at_point(x_mat[i, j], mu_vec, sigma_vec, weight_vec)
+         for i=1:size(x_mat, 1), j=1:size(x_mat, 2) ]
+    gmm_psf
   end
 
-  # Get the scaling constant that minimizes the squared error.
-  post = GaussianMixtures.gmmposterior(gmm, x_mat)
-  gmm_fit = exp(post[2]) * gmm.w;
-  scale = sum(gmm_fit .* psf_mat) / sum(gmm_fit .* gmm_fit)
+  function evaluate_fit{T <: Number}(par::Vector{T})
+    gmm_psf = render_psf(par)
+    local fit = sum((psf .- gmm_psf) .^ 2)
+    if (T == Float64)
+      println("-----------")
+      println(sigma_vec)
+      println(mu_vec)
+      println(weight_vec)
+      println("-----------")
+      println(fit)
+    end
+    fit
+  end
 
-  gmm, scale
+  # evaluate_fit_gradient_rev! = ForwardDiff.gradient(evaluate_fit, mutates=true)
+  # # Optim requires the arguements to be reversed relative to ForwardDiff
+  # function evaluate_fit_gradient!(par::Vector{Float64}, storage::Vector{Float64})
+  #   evaluate_fit_gradient_rev!(storage, par)
+  # end
+
+
+  # evaluate_fit(par)
+  # grad = zeros(Float64, length(par))
+  # ForwardDiff.gradient(evaluate_fit, par)
+  # evaluate_fit_gradient!(grad, par)
+  # grad
+
+  #  93.171883 seconds (874.62 M allocations: 42.101 GB, 12.73% gc time)
+  # @time optim_result_bfgs = Optim.optimize(evaluate_fit, par,
+  #                                    method=Optim.BFGS())
+
+  #  24.128676 seconds (227.56 M allocations: 10.954 GB, 12.87% gc time)
+  @time optim_result_nelder = Optim.optimize(evaluate_fit, par)
+
+
+  optim_result = Optim.optimize(evaluate_fit, par, method=Optim.Newton())
+
 end
 
 
