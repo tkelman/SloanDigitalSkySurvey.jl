@@ -248,6 +248,17 @@ function ForwardDiff.value(x::Float64)
   x
 end
 
+
+function render_psf{T <: Number}(par::Vector{T})
+  local mu_vec, sigma_vec, weight_vec
+  mu_vec, sigma_vec, weight_vec = unwrap_parameters(par)
+  gmm_psf =
+    T[ evaluate_psf_at_point(x_mat[i, j], mu_vec, sigma_vec, weight_vec)
+       for i=1:size(x_mat, 1), j=1:size(x_mat, 2) ]
+  gmm_psf
+end
+
+
 @doc """
 Fit a mixture of 2d Gaussians to a PSF image (evaluated at a single point).
 
@@ -283,31 +294,40 @@ function fit_psf_gaussians(
   x_mat = [ Float64[i, j] - psf_center for i=1:size(psf, 1), j=1:size(psf, 2) ]
 
   # Imagining the psf as a density, get an approximation for the covariance.
-  psf_starting_cov  =
-    sum([ psf[i, j]  * x_mat[i, j] * x_mat[i, j]' for
+  # psf_starting_cov  =
+  #   sum([ psf[i, j]  * x_mat[i, j] * x_mat[i, j]' for
+  #       i in 1:size(psf, 1), j=1:size(psf, 2) ]) / sum(psf)
+
+  psf_starting_mean  =
+    sum([ psf[i, j]  * x_mat[i, j] for
         i in 1:size(psf, 1), j=1:size(psf, 2) ]) / sum(psf)
 
-  function render_psf{T <: Number}(par::Vector{T})
-    local mu_vec, sigma_vec, weight_vec
-    mu_vec, sigma_vec, weight_vec = unwrap_parameters(par)
-    gmm_psf =
-      T[ evaluate_psf_at_point(x_mat[i, j], mu_vec, sigma_vec, weight_vec)
-         for i=1:size(x_mat, 1), j=1:size(x_mat, 2) ]
-    gmm_psf
-  end
+  # Easier for optimization to increase variance than reduce it
+  psf_starting_cov = Float64[ 1 0; 0 1]
+  println(psf_starting_cov, psf_starting_mean)
+
+  K = 1
+  mu_vec = Array(Vector{Float64}, K)
+  sigma_vec = Array(Matrix{Float64}, K)
+  weight_vec = zeros(Float64, K)
+
+  # Hard-coded initialization.
+  mu_vec[1] = psf_starting_mean
+  sigma_vec[1] = psf_starting_cov
+  weight_vec[1] = 1 / K
 
   function evaluate_fit{T <: Number}(par::Vector{T})
     gmm_psf = render_psf(par)
     local fit = sum((psf .- gmm_psf) .^ 2)
-    if (T == Float64)
-      println("-----------")
-      println(sigma_vec)
-      println(mu_vec)
-      println(weight_vec)
-      println("-----------")
-      println(fit)
-    end
-    fit
+    # if (T == Float64)
+    #   println("-----------")
+    #   println(sigma_vec)
+    #   println(mu_vec)
+    #   println(weight_vec)
+    #   println("-----------")
+    #   println(fit)
+    # end
+    # fit
   end
 
   # evaluate_fit_gradient_rev! = ForwardDiff.gradient(evaluate_fit, mutates=true)
@@ -328,11 +348,7 @@ function fit_psf_gaussians(
   #                                    method=Optim.BFGS())
 
   #  24.128676 seconds (227.56 M allocations: 10.954 GB, 12.87% gc time)
-  @time optim_result_nelder = Optim.optimize(evaluate_fit, par)
-
-
-  optim_result = Optim.optimize(evaluate_fit, par, method=Optim.Newton())
-
+  Optim.optimize(evaluate_fit, par)
 end
 
 

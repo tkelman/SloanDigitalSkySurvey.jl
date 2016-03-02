@@ -39,6 +39,7 @@ mu_vec[1] = Float64[0, 0]
 sigma_vec[1] = 2 * psf_starting_cov
 weight_vec[1] = 1 / K
 
+par = wrap_parameters(mu_vec, sigma_vec, weight_vec)
 # mu_vec[2] = -Float64[0, 0]
 # sigma_vec[2] = 0.5 * psf_starting_cov
 # weight_vec[2] = 1 / K
@@ -47,21 +48,35 @@ weight_vec[1] = 1 / K
 # sigma_vec[3] = psf_starting_cov
 # weight_vec[3] = 1 / K
 
-par = wrap_parameters(mu_vec, sigma_vec, weight_vec)
+PyPlot.close("all")
 
-@time optim_result_nelder = Optim.optimize(evaluate_fit, par)
+psf_max = maximum(psf)
+matshow(psf, vmax=1.2 * psf_max); PyPlot.colorbar(); PyPlot.title("PSF")
+
+opt_result_1 = fit_psf_gaussians(psf);
+unwrap_parameters(opt_result_1.minimum)
+gmm_psf1 = render_psf(opt_result_1.minimum);
+psf_residual1 = psf - gmm_psf1;
+matshow(gmm_psf1, vmax=1.2 * psf_max); PyPlot.colorbar(); PyPlot.title("fit1")
+resid_max = 1.5 * maximum(abs(psf_residual1))
+matshow(psf_residual1, vmax=resid_max, vmin=-resid_max)
+PyPlot.colorbar(); PyPlot.title("residual1")
 
 
-gmm_psf = render_psf(optim_result_nelder.minimum)
-matshow(psf); PyPlot.colorbar()
-matshow(gmm_psf); PyPlot.colorbar()
-matshow(psf - gmm_psf); PyPlot.colorbar()
+opt_result_2 = fit_psf_gaussians(psf_residual1);
+unwrap_parameters(opt_result_2.minimum)
+gmm_psf2 = gmm_psf1 + render_psf(opt_result_2.minimum);
+psf_residual2 = psf - gmm_psf2;
+#matshow(gmm_psf2); PyPlot.colorbar(); PyPlot.title("fit2")
+matshow(psf_residual2, vmax=resid_max, vmin=-resid_max)
+PyPlot.colorbar(); PyPlot.title("residual2")
 
-unwrap_parameters(optim_result_nelder.minimum)
-
-
-
-psf_delta = psf -
+opt_result_3 = fit_psf_gaussians(psf_residual2);
+unwrap_parameters(opt_result_3.minimum)
+gmm_psf3 = gmm_psf2 + render_psf(opt_result_3.minimum);
+psf_residual3 = psf - gmm_psf3;
+matshow(psf_residual3, vmax=resid_max, vmin=-resid_max)
+PyPlot.colorbar(); PyPlot.title("residual2")
 
 
 
