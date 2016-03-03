@@ -24,6 +24,7 @@ const field_num = "0269"
 raw_psf_comp =
   SDSS.load_psf_data(field_dir, run_num, camcol_num, field_num, 1);
 psf = PSF.get_psf_at_point(10.0, 10.0, raw_psf_comp);
+psf_2 = PSF.get_psf_at_point(500.0, 500.0, raw_psf_comp);
 x_mat = get_x_matrix_from_psf(psf);
 
 verbose = true
@@ -36,9 +37,13 @@ matshow(psf, vmax=1.2 * psf_max); PyPlot.colorbar(); PyPlot.title("PSF")
 opt_result = fit_psf_gaussians(psf, K=2,
   optim_method=Optim.NelderMead(), verbose=true);
 
-# opt_result = fit_psf_gaussians(psf, K=2,
-#   optim_method=Optim.SimulatedAnnealing(), verbose=true);
-#
+opt_result_noop = fit_psf_gaussians(psf, K=2, initial_par=opt_result.minimum,
+  optim_method=Optim.NelderMead(), verbose=true);
+
+# Why isn't this better?
+opt_result_2 = fit_psf_gaussians(psf_2, K=2, initial_par=opt_result.minimum,
+  optim_method=Optim.NelderMead(), verbose=true);
+
 # opt_result = fit_psf_gaussians(psf, initial_par=opt_result.minimum, K=2,
 #   optim_method=Optim.AcceleratedGradientDescent(), verbose=true, iterations=20);
 #

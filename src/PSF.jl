@@ -294,6 +294,7 @@ function fit_psf_gaussians(
   x_mat = get_x_matrix_from_psf(psf);
 
   if length(initial_par) == 0
+    println("Using default initialization.")
     psf_starting_mean  =
       sum([ psf[i, j]  * x_mat[i, j] for
           i in 1:size(psf, 1), j=1:size(psf, 2) ]) / sum(psf)
@@ -316,7 +317,7 @@ function fit_psf_gaussians(
     gmm_psf = render_psf(par, x_mat)
     local fit = sum((psf .- gmm_psf) .^ 2)
     if verbose
-      println("Fit: $fit")
+      println("Fit: $fit, par = $par")
     end
     fit
   end
