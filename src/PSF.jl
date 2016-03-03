@@ -242,14 +242,14 @@ function evaluate_psf_at_point{T <: Number}(
 end
 
 
-
-import ForwardDiff.value
-function ForwardDiff.value(x::Float64)
-  x
+function get_x_matrix_from_psf(psf::Matrix{Float64})
+  # Data points at which the psf is evaluated in matrix form.
+  psf_center = Float64[ (size(psf, i) - 1) / 2 + 1 for i=1:2 ]
+  Vector{Float64}[ Float64[i, j] - psf_center for i=1:size(psf, 1), j=1:size(psf, 2) ]
 end
 
 
-function render_psf{T <: Number}(par::Vector{T})
+function render_psf{T <: Number}(par::Vector{T}, x_mat::Matrix{Vector{Float64}})
   local mu_vec, sigma_vec, weight_vec
   mu_vec, sigma_vec, weight_vec = unwrap_parameters(par)
   gmm_psf =
@@ -280,7 +280,9 @@ Args:
  to fit the mixture and squared error loss to fit the scale.
 """ ->
 function fit_psf_gaussians(
-    psf::Array{Float64, 2}; tol = 1e-9, max_iter = 500, verbose=false)
+    psf::Array{Float64, 2}; initial_par=Float64[],
+    grtol = 1e-9, iterations = 5000, verbose=false,
+    K=2, optim_method=Optim.NelderMead())
 
   if (any(psf .< 0))
       if verbose
@@ -289,66 +291,38 @@ function fit_psf_gaussians(
       psf[ psf .< 0 ] = 0
   end
 
-  # Data points at which the psf is evaluated in matrix form.
-  psf_center = Float64[ (size(psf, i) - 1) / 2 + 1 for i=1:2 ]
-  x_mat = [ Float64[i, j] - psf_center for i=1:size(psf, 1), j=1:size(psf, 2) ]
+  x_mat = get_x_matrix_from_psf(psf);
 
-  # Imagining the psf as a density, get an approximation for the covariance.
-  # psf_starting_cov  =
-  #   sum([ psf[i, j]  * x_mat[i, j] * x_mat[i, j]' for
-  #       i in 1:size(psf, 1), j=1:size(psf, 2) ]) / sum(psf)
+  if length(initial_par) == 0
+    psf_starting_mean  =
+      sum([ psf[i, j]  * x_mat[i, j] for
+          i in 1:size(psf, 1), j=1:size(psf, 2) ]) / sum(psf)
 
-  psf_starting_mean  =
-    sum([ psf[i, j]  * x_mat[i, j] for
-        i in 1:size(psf, 1), j=1:size(psf, 2) ]) / sum(psf)
+    mu_vec = Array(Vector{Float64}, K)
+    sigma_vec = Array(Matrix{Float64}, K)
+    weight_vec = zeros(Float64, K)
 
-  # Easier for optimization to increase variance than reduce it
-  psf_starting_cov = Float64[ 1 0; 0 1]
-  println(psf_starting_cov, psf_starting_mean)
-
-  K = 1
-  mu_vec = Array(Vector{Float64}, K)
-  sigma_vec = Array(Matrix{Float64}, K)
-  weight_vec = zeros(Float64, K)
-
-  # Hard-coded initialization.
-  mu_vec[1] = psf_starting_mean
-  sigma_vec[1] = psf_starting_cov
-  weight_vec[1] = 1 / K
-
-  function evaluate_fit{T <: Number}(par::Vector{T})
-    gmm_psf = render_psf(par)
-    local fit = sum((psf .- gmm_psf) .^ 2)
-    # if (T == Float64)
-    #   println("-----------")
-    #   println(sigma_vec)
-    #   println(mu_vec)
-    #   println(weight_vec)
-    #   println("-----------")
-    #   println(fit)
-    # end
-    # fit
+    for k=1:K
+      mu_vec[k] = psf_starting_mean
+      sigma_vec[k] = Float64[ sqrt(2 * k) 0; 0 sqrt(2 * k)]
+      weight_vec[k] = 1 / K
+    end
+    initial_par = wrap_parameters(mu_vec, sigma_vec, weight_vec)
   end
 
-  # evaluate_fit_gradient_rev! = ForwardDiff.gradient(evaluate_fit, mutates=true)
-  # # Optim requires the arguements to be reversed relative to ForwardDiff
-  # function evaluate_fit_gradient!(par::Vector{Float64}, storage::Vector{Float64})
-  #   evaluate_fit_gradient_rev!(storage, par)
-  # end
+  @assert length(initial_par) == K * 6
 
+  function evaluate_fit{T <: Number}(par::Vector{T})
+    gmm_psf = render_psf(par, x_mat)
+    local fit = sum((psf .- gmm_psf) .^ 2)
+    if verbose
+      println("Fit: $fit")
+    end
+    fit
+  end
 
-  # evaluate_fit(par)
-  # grad = zeros(Float64, length(par))
-  # ForwardDiff.gradient(evaluate_fit, par)
-  # evaluate_fit_gradient!(grad, par)
-  # grad
-
-  #  93.171883 seconds (874.62 M allocations: 42.101 GB, 12.73% gc time)
-  # @time optim_result_bfgs = Optim.optimize(evaluate_fit, par,
-  #                                    method=Optim.BFGS())
-
-  #  24.128676 seconds (227.56 M allocations: 10.954 GB, 12.87% gc time)
-  Optim.optimize(evaluate_fit, par)
+  Optim.optimize(evaluate_fit, initial_par, method=optim_method,
+                 iterations=iterations, grtol=grtol)
 end
 
 

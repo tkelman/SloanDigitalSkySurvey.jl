@@ -24,29 +24,55 @@ const field_num = "0269"
 raw_psf_comp =
   SDSS.load_psf_data(field_dir, run_num, camcol_num, field_num, 1);
 psf = PSF.get_psf_at_point(10.0, 10.0, raw_psf_comp);
-
-
-K = 1
+x_mat = get_x_matrix_from_psf(psf);
 
 verbose = true
 
-mu_vec = Array(Vector{Float64}, K)
-sigma_vec = Array(Matrix{Float64}, K)
-weight_vec = zeros(Float64, K)
+psf_max = maximum(psf)
+matshow(psf, vmax=1.2 * psf_max); PyPlot.colorbar(); PyPlot.title("PSF")
 
-# Hard-coded initialization.
-mu_vec[1] = Float64[0, 0]
-sigma_vec[1] = 2 * psf_starting_cov
-weight_vec[1] = 1 / K
+# Why is NM the best?
+# K=3 is much slower and not much better than K=2 by the looks of it.
+opt_result = fit_psf_gaussians(psf, K=2,
+  optim_method=Optim.NelderMead(), verbose=true);
 
-par = wrap_parameters(mu_vec, sigma_vec, weight_vec)
-# mu_vec[2] = -Float64[0, 0]
-# sigma_vec[2] = 0.5 * psf_starting_cov
-# weight_vec[2] = 1 / K
+# opt_result = fit_psf_gaussians(psf, K=2,
+#   optim_method=Optim.SimulatedAnnealing(), verbose=true);
 #
-# mu_vec[3] = Float64[0.1, 0.1]
-# sigma_vec[3] = psf_starting_cov
-# weight_vec[3] = 1 / K
+# opt_result = fit_psf_gaussians(psf, initial_par=opt_result.minimum, K=2,
+#   optim_method=Optim.AcceleratedGradientDescent(), verbose=true, iterations=20);
+#
+
+unwrap_parameters(opt_result.minimum)
+gmm_psf = render_psf(opt_result.minimum, x_mat);
+matshow(gmm_psf, vmax=1.2 * psf_max); PyPlot.colorbar(); PyPlot.title("fit1")
+psf_residual = psf - gmm_psf;
+resid_max = 1.5 * maximum(abs(psf_residual))
+matshow(psf_residual, vmax=resid_max, vmin=-resid_max)
+PyPlot.colorbar(); PyPlot.title("residual")
+sum(psf_residual .^ 2)
+
+# Compare to EM
+gmm, scale = PSF.fit_psf_gaussians_em(psf);
+em_psf = [ PSF.evaluate_gmm(gmm, x_mat[i, j]')[1] for
+           i=1:size(x_mat, 1), j=1:size(x_mat, 2)];
+em_psf_residual = psf - em_psf;
+matshow(em_psf_residual, vmax=resid_max, vmin=-resid_max)
+PyPlot.colorbar(); PyPlot.title("em residual")
+sum(em_psf_residual .^ 2)
+
+
+
+mu_vec = Array(Vector{T}, K)
+sigma_vec = Array(Matrix{T}, K)
+weight_vec = zeros(T, K)
+
+for k = 1:K
+  mu_vec[k] = gmm.μ[1, :][:]
+  sigma_vec[k] = sigma_chol' * sigma_chol + sigma_min
+  weight_vec[k] = exp(par[offset + 6]) + weight_min
+end
+
 
 PyPlot.close("all")
 
