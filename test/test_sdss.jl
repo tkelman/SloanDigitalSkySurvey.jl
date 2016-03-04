@@ -95,6 +95,23 @@ opt_result_2 = fit_psf_gaussians(psf_2, K=2, initial_par=opt_result.minimum,
 
 
 
+############# EM initialization
+gmm, scale = PSF.fit_psf_gaussians_em(psf);
+
+em_mu_vec = Array(Vector{Float64}, 2)
+em_sigma_vec = Array(Matrix{Float64}, 2)
+em_weight_vec = Array(Float64, 2)
+
+for k=1:2
+  em_mu_vec[k] = gmm.μ[k,:][:]
+  em_sigma_vec[k] = inv(GaussianMixtures.precision(gmm.Σ[k]))
+  em_weight_vec[k] = gmm.w[k] * scale
+end
+em_par = PSF.wrap_parameters(em_mu_vec, em_sigma_vec, em_weight_vec)
+@time optim_result_newton_em =
+  Optim.optimize(evaluate_fit, evaluate_fit_g!, evaluate_fit_h!,
+                em_par, method=Optim.Newton())
+
 
 
 # Coordinate ascent?
