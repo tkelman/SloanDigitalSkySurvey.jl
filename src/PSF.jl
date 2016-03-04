@@ -23,157 +23,37 @@ immutable RawPSFComponents
 end
 
 
-@doc """
-Evaluate a gmm object at the data points x_mat.
-""" ->
-function evaluate_gmm(gmm::GaussianMixtures.GMM, x_mat::Array{Float64, 2})
-    post = GaussianMixtures.gmmposterior(gmm, x_mat)
-    exp(post[2]) * gmm.w;
-end
+# @doc """
+# The Gaussian components of a mixture of 2d normals.  The kth component
+# is weight_vec[k] * N(mu_vec[k], sigma_vec[k]).  Each vec must have the
+# same length, K.
+# """ ->
+# type PSFGaussianComponents{T <: Number}
+#   mu_vec::Vector{Vector{T}}
+#   sigma_vec::Vector{Matrix{T}}
+#   weight_vec::Vector{T}
+#
+#   PSFGaussianComponents(
+#     mu_vec::Vector{Vector{Number}},
+#     sigma_vec::Vector{Matrix{Number}},
+#     weight_vec::Vector{Number}) = begin
+#
+#     @assert length(mu_vec) == length(sigma_vec) == length(weight_vec)
+#     new(mu_vec, sigma_vec, weight_vec)
+#   end
+# end
+
+
+# Constants to keep the optimization stable.
+const sigma_min = diagm([0.25, 0.25])
+const weight_min = 0.05
 
 
 @doc """
-Fit a mixture of 2d Gaussians to a PSF image (evaluated at a single point).
-
-Args:
- - psf: An matrix image of the point spread function, e.g. as returned by get_psf_at_point.
- - tol: The target mean sum of squared errors between the MVN fit and the raw psf.
- - max_iter: The maximum number of EM steps to take.
-
- Returns:
-  - A GaussianMixtures.GMM object containing the fit
-  - A scaling that minimized the least squares error.
-
- Use an EM algorithm to fit a mixture of three multivariate normals to the
- point spread function.  Although the psf is continuous-valued, we use EM by
- fitting as if we had gotten psf[x, y] data points at the image location [x, y].
- As of writing weighted data matrices of this form were not supported in GaussianMixtures.
-
- Note that this is a little incoherent -- we use something like log loss
- to fit the mixture and squared error loss to fit the scale.
+Convert the parameters of a mixture of 2d Gaussians
+sum_k weight_vec[k] * N(mu_vec[k], sigma_vec[k])
+to an unconstrained vector that can be passed to an optimizer.
 """ ->
-function fit_psf_gaussians_em(
-  psf::Array{Float64, 2}; tol = 1e-9, max_iter = 500, verbose=false)
-
-    function sigma_for_gmm(sigma_mat)
-        # Returns a matrix suitable for storage in the field gmm.Σ
-        GaussianMixtures.cholinv(sigma_mat)
-    end
-
-    # TODO: Is it ok that it is coming up negative in some points?
-    if (any(psf .< 0))
-        if verbose
-            warn("Some psf values are negative.")
-        end
-        psf[ psf .< 0 ] = 0
-    end
-
-    # Data points at which the psf is evaluated in matrix form.
-    psf_center = Float64[ (size(psf, i) - 1) / 2 + 1 for i=1:2 ]
-    x_prod = [ Float64[i, j] for i=1:size(psf, 1), j=1:size(psf, 2) ]
-    x_mat = Float64[ x_row[col] for x_row=x_prod, col=1:2 ]
-    x_mat = broadcast(-, x_mat, psf_center')
-
-    # The function we're trying to match.
-    psf_scale = sum(psf)
-    psf_mat = Float64[psf[round(Int, x_row[1]), round(Int, x_row[2])] /
-                      psf_scale for x_row=x_prod ];
-
-    # Use the GaussianMixtures package to evaluate our likelihoods.  In order to
-    # avoid automatically choosing an initialization point, hard-code three
-    # gaussians for now.  Ignore their initialization, which would not be
-    # weighted by the psf.
-    gmm = GaussianMixtures.GMM(3, x_mat; kind=:full, nInit=0)
-
-    # Get the scale for the starting point from the whole image.
-    psf_starting_var = x_mat' * (x_mat .* psf_mat)
-
-    # Hard-coded initialization.
-    gmm.μ[1, :] = Float64[0, 0]
-    gmm.Σ[1] = sigma_for_gmm(psf_starting_var)
-
-    gmm.μ[2, :] = -Float64[0.2, 0.2]
-    gmm.Σ[2] = sigma_for_gmm(psf_starting_var)
-
-    gmm.μ[3, :] = Float64[0.2, 0.2]
-    gmm.Σ[3] = sigma_for_gmm(psf_starting_var)
-
-    gmm.w = ones(gmm.n) / gmm.n
-
-    iter = 1
-    err_diff = Inf
-    last_err = Inf
-    fit_done = false
-
-    # post contains the posterior information about the values of the
-    # mixture as well as the probabilities of each component.
-    post = GaussianMixtures.gmmposterior(gmm, x_mat)
-
-    while !fit_done
-        # Update gmm using last value of post.  post[1] contains
-        # posterior probabilities of the indicators.
-        z = post[1] .* psf_mat
-        z_sum = collect(sum(z, 1))
-        new_w = z_sum / sum(z_sum)
-        gmm.w = new_w
-        for d=1:gmm.n
-            if new_w[d] > 1e-6
-                new_mean = sum(x_mat .* z[:, d], 1) / z_sum[d]
-                x_centered = broadcast(-, x_mat, new_mean)
-                x_cov = x_centered' * (x_centered .* z[:, d]) / z_sum[d]
-
-                gmm.μ[d, :] = new_mean
-                gmm.Σ[d] = sigma_for_gmm(x_cov)
-            else
-                warn("Component $d has very small probability.")
-            end
-        end
-
-        # Get next posterior and check for convergence.  post[2] contains
-        # the log densities at each point.
-        post = GaussianMixtures.gmmposterior(gmm, x_mat)
-        gmm_fit = exp(post[2]) * gmm.w;
-        err = mean((gmm_fit - psf_mat) .^ 2)
-        err_diff = abs(last_err - err)
-        if verbose
-            println("$iter: err=$err err_diff=$err_diff")
-        end
-
-        last_err = err
-        if isnan(err)
-            error("NaN in MVN PSF fit.")
-        end
-
-        iter = iter + 1
-        if err_diff < tol
-            println("Tolerance reached ($err_diff < $tol)")
-            fit_done = true
-        elseif iter >= max_iter
-            warn("PSF MVN fit: max_iter exceeded")
-            fit_done = true
-        end
-
-        if verbose
-          println("Fitting psf: $iter: $err_diff")
-        end
-    end
-
-    # Get the scaling constant that minimizes the squared error.
-    post = GaussianMixtures.gmmposterior(gmm, x_mat)
-    gmm_fit = exp(post[2]) * gmm.w;
-    scale = sum(gmm_fit .* psf_mat) / sum(gmm_fit .* gmm_fit)
-
-    gmm, scale
-end
-
-
-
-
-
-
-sigma_min = diagm([1e-2, 1e-2])
-weight_min = 1e-2
-
 function wrap_parameters(
     mu_vec::Vector{Vector{Float64}},
     sigma_vec::Vector{Matrix{Float64}},
@@ -198,6 +78,10 @@ function wrap_parameters(
   par
 end
 
+
+@doc """
+Reverse wrap_parameters().
+""" ->
 function unwrap_parameters{T <: Number}(par::Vector{T})
   local K = round(Int, length(par) / 6)
   @assert K == length(par) / 6
@@ -220,6 +104,18 @@ function unwrap_parameters{T <: Number}(par::Vector{T})
 end
 
 
+@doc """
+Using a vector of mu, sigma, and weights, get the value of the GMM at x.
+
+Args:
+  - x: A length 2 vector to evaluate the GMM at.
+  - mu_vec: A vector of location vectors.
+  - sigma_vec: A vector of covariance matrices.
+  - weight_vec: A vector of weights.
+
+Returns:
+  - The weighted sum of the component densities at x.
+""" ->
 function evaluate_psf_at_point{T <: Number}(
     x::Vector{Float64},
     mu_vec::Vector{Vector{T}},
@@ -242,13 +138,21 @@ function evaluate_psf_at_point{T <: Number}(
 end
 
 
+@doc """
+Given a psf matrix, return a matrix of the same size, where each element of
+the matrix is a 2-length vector of the [x1, x2] location of that matrix cell.
+The locations are chosen so that the scale is pixels, but the center of the
+psf is [0, 0].
+""" ->
 function get_x_matrix_from_psf(psf::Matrix{Float64})
-  # Data points at which the psf is evaluated in matrix form.
   psf_center = Float64[ (size(psf, i) - 1) / 2 + 1 for i=1:2 ]
   Vector{Float64}[ Float64[i, j] - psf_center for i=1:size(psf, 1), j=1:size(psf, 2) ]
 end
 
 
+@doc """
+Evaluate a GMM expressed in its unconstrained form.
+""" ->
 function render_psf{T <: Number}(par::Vector{T}, x_mat::Matrix{Vector{Float64}})
   local mu_vec, sigma_vec, weight_vec
   mu_vec, sigma_vec, weight_vec = unwrap_parameters(par)
@@ -263,21 +167,9 @@ end
 Fit a mixture of 2d Gaussians to a PSF image (evaluated at a single point).
 
 Args:
- - psf: An matrix image of the point spread function, e.g. as returned by get_psf_at_point.
- - tol: The target mean sum of squared errors between the MVN fit and the raw psf.
- - max_iter: The maximum number of optimization steps to take.
+ - psf: An matrix image of the point spread function, e.g. as returned by
+        get_psf_at_point.
 
- Returns:
-  - A GaussianMixtures.GMM object containing the fit
-  - A scaling that minimized the least squares error.
-
- Use an EM algorithm to fit a mixture of three multivariate normals to the
- point spread function.  Although the psf is continuous-valued, we use EM by
- fitting as if we had gotten psf[x, y] data points at the image location [x, y].
- As of writing weighted data matrices of this form were not supported in GaussianMixtures.
-
- Note that this is a little incoherent -- we use something like log loss
- to fit the mixture and squared error loss to fit the scale.
 """ ->
 function fit_psf_gaussians(
     psf::Array{Float64, 2}; initial_par=Float64[],
@@ -316,14 +208,22 @@ function fit_psf_gaussians(
   function evaluate_fit{T <: Number}(par::Vector{T})
     gmm_psf = render_psf(par, x_mat)
     local fit = sum((psf .- gmm_psf) .^ 2)
-    if verbose
-      println("Fit: $fit, par = $par")
+    if verbose && T == Float64
+      println("-------------------")
+      println("Fit: $fit")
+      mu_vec, sigma_vec, weight_vec = unwrap_parameters(par)
+      println(mu_vec)
+      println(sigma_vec)
+      println(weight_vec)
     end
     fit
   end
 
-  Optim.optimize(evaluate_fit, initial_par, method=optim_method,
-                 iterations=iterations, grtol=grtol)
+  optim_result =
+    Optim.optimize(evaluate_fit, initial_par, method=optim_method,
+                   iterations=iterations, grtol=grtol)
+
+  optim_result, unwrap_parameters(optim_result.minimum)...
 end
 
 

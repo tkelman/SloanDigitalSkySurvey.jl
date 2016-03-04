@@ -21,28 +21,123 @@ const run_num = "003900"
 const camcol_num = "6"
 const field_num = "0269"
 
+using PSF.get_x_matrix_from_psf
+using PSF.render_psf
+using PSF.unwrap_parameters
+
 raw_psf_comp =
   SDSS.load_psf_data(field_dir, run_num, camcol_num, field_num, 1);
 psf = PSF.get_psf_at_point(10.0, 10.0, raw_psf_comp);
 psf_2 = PSF.get_psf_at_point(500.0, 500.0, raw_psf_comp);
-x_mat = get_x_matrix_from_psf(psf);
+x_mat = PSF.get_x_matrix_from_psf(psf);
 
 verbose = true
 
 psf_max = maximum(psf)
-matshow(psf, vmax=1.2 * psf_max); PyPlot.colorbar(); PyPlot.title("PSF")
+#matshow(psf, vmax=1.2 * psf_max); PyPlot.colorbar(); PyPlot.title("PSF")
+
+
+K = 1
 
 # Why is NM the best?
 # K=3 is much slower and not much better than K=2 by the looks of it.
-opt_result = fit_psf_gaussians(psf, K=2,
+opt_result, mu_vec, sigma_vec, weight_vec = PSF.fit_psf_gaussians(psf, K=K,
   optim_method=Optim.NelderMead(), verbose=true);
 
-opt_result_noop = fit_psf_gaussians(psf, K=2, initial_par=opt_result.minimum,
-  optim_method=Optim.NelderMead(), verbose=true);
+initial_par = opt_result.minimum
 
-# Why isn't this better?
+function evaluate_fit{T <: Number}(par::Vector{T})
+  gmm_psf = render_psf(par, x_mat)
+  local fit = sum((psf .- gmm_psf) .^ 2)
+  if verbose && T == Float64
+    println("-------------------")
+    println("Fit: $fit")
+    mu_vec, sigma_vec, weight_vec = unwrap_parameters(par)
+    println(mu_vec)
+    println(sigma_vec)
+    println(weight_vec)
+  end
+  fit
+end
+
+# ForwardDiff reverses the arguments relative to what Optim expects.
+evaluate_fit_g_rev! = ForwardDiff.gradient(evaluate_fit, mutates=true)
+function evaluate_fit_g!(x::Vector{Float64}, output::Vector{Float64})
+  evaluate_fit_g_rev!(output, x)
+end
+
+evaluate_fit_h_rev! = ForwardDiff.hessian(evaluate_fit, mutates=true)
+function evaluate_fit_h!(x::Vector{Float64}, output::Matrix{Float64})
+  evaluate_fit_h_rev!(output, x)
+end
+
+@time optim_result_newton =
+  Optim.optimize(evaluate_fit, evaluate_fit_g!, evaluate_fit_h!,
+                initial_par, method=Optim.Newton())
+
+# @time optim_result_bfgs =
+#   Optim.optimize(evaluate_fit, evaluate_fit_g!, evaluate_fit_h!,
+#                 initial_par, method=Optim.BFGS())
+
+@time optim_result_nelder =
+    Optim.optimize(evaluate_fit, evaluate_fit_g!, evaluate_fit_h!,
+                    initial_par, method=Optim.NelderMead())
+h = ForwardDiff.hessian(evaluate_fit, initial_par)
+maximum(eig(h)[1]) / minimum(eig(h)[1])
+
+opt_result_noop = PSF.fit_psf_gaussians(psf, K=2, initial_par=opt_result.minimum,
+  optim_method=Optim.NelderMead(), verbose=true, iterations=1);
+
+# Why isn't this better?  It's because NM has no derivative information and so
+# doesn't stay near the optimum.
 opt_result_2 = fit_psf_gaussians(psf_2, K=2, initial_par=opt_result.minimum,
   optim_method=Optim.NelderMead(), verbose=true);
+
+
+
+
+
+# Coordinate ascent?
+
+mu_vec = Array(Vector{Float64}, 2)
+sigma_vec = Array(Matrix{Float64}, 2)
+weight_vec = Array(Float64, 2)
+
+opt_result1, mu1, sigma1, weight1 =
+  PSF.fit_psf_gaussians(psf, K=1,
+    optim_method=Optim.NelderMead(), verbose=true);
+gmm_psf1 = render_psf(opt_result1.minimum, x_mat);
+
+opt_result2, mu2, sigma2, weight2 =
+  PSF.fit_psf_gaussians(psf - gmm_psf1, K=1,
+    optim_method=Optim.NelderMead(), verbose=true);
+
+mu_vec[1] = mu1[1]
+mu_vec[2] = mu2[1]
+sigma_vec[1] = sigma1[1]
+sigma_vec[2] = sigma2[1]
+weight_vec[1] = weight1[1]
+weight_vec[2] = weight2[1]
+
+initial_par = PSF.wrap_parameters(mu_vec, sigma_vec, weight_vec)
+
+@time optim_result_newton =
+  Optim.optimize(evaluate_fit, evaluate_fit_g!, evaluate_fit_h!,
+                initial_par, method=Optim.Newton())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # opt_result = fit_psf_gaussians(psf, initial_par=opt_result.minimum, K=2,
 #   optim_method=Optim.AcceleratedGradientDescent(), verbose=true, iterations=20);
