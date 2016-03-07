@@ -171,7 +171,7 @@ Args:
         get_psf_at_point.
 
 """ ->
-function fit_psf_gaussians(
+function fit_psf_gaussians_least_squares(
     psf::Array{Float64, 2}; initial_par=Float64[],
     grtol = 1e-9, iterations = 5000, verbose=false,
     K=2, optim_method=Optim.NelderMead())
@@ -318,7 +318,7 @@ Args:
  Note that this is a little incoherent -- we use something like log loss
  to fit the mixture and squared error loss to fit the scale.
 """ ->
-function fit_psf_gaussians_em(
+function fit_psf_gaussians(
   psf::Array{Float64, 2}; tol = 1e-9, max_iter = 500, verbose=false)
 
     function sigma_for_gmm(sigma_mat)
