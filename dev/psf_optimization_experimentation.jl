@@ -1,4 +1,22 @@
-println("Running sdss tests.")
+# @doc """
+# The Gaussian components of a mixture of 2d normals.  The kth component
+# is weight_vec[k] * N(mu_vec[k], sigma_vec[k]).  Each vec must have the
+# same length, K.
+# """ ->
+# type PSFGaussianComponents{T <: Number}
+#   mu_vec::Vector{Vector{T}}
+#   sigma_vec::Vector{Matrix{T}}
+#   weight_vec::Vector{T}
+#
+#   PSFGaussianComponents(
+#     mu_vec::Vector{Vector{Number}},
+#     sigma_vec::Vector{Matrix{Number}},
+#     weight_vec::Vector{Number}) = begin
+#
+#     @assert length(mu_vec) == length(sigma_vec) == length(weight_vec)
+#     new(mu_vec, sigma_vec, weight_vec)
+#   end
+# end
 
 
 using Base.Test
