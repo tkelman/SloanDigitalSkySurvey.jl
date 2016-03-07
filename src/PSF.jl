@@ -285,9 +285,9 @@ end
 
 
 
-
-################### EM:
-
+###################
+# Methods for EM.  EM is faster, but optimizes the wrong loss function --
+# we want a least squares fit, not a log likelihood fit.
 
 @doc """
 Evaluate a gmm object at the data points x_mat.
@@ -349,7 +349,7 @@ function fit_psf_gaussians(
     # avoid automatically choosing an initialization point, hard-code three
     # gaussians for now.  Ignore their initialization, which would not be
     # weighted by the psf.
-    gmm = GaussianMixtures.GMM(2, x_mat; kind=:full, nInit=0)
+    gmm = GaussianMixtures.GMM(3, x_mat; kind=:full, nInit=0)
 
     # Get the scale for the starting point from the whole image.
     psf_starting_var = x_mat' * (x_mat .* psf_mat)
@@ -361,8 +361,8 @@ function fit_psf_gaussians(
     gmm.μ[2, :] = -Float64[0, 0]
     gmm.Σ[2] = sigma_for_gmm(Float64[ 2 0; 0 2])
 
-    # gmm.μ[3, :] = Float64[0.2, 0.2]
-    # gmm.Σ[3] = sigma_for_gmm(psf_starting_var)
+    gmm.μ[3, :] = Float64[0.2, 0.2]
+    gmm.Σ[3] = sigma_for_gmm(psf_starting_var)
 
     gmm.w = ones(gmm.n) / gmm.n
 
@@ -431,16 +431,6 @@ function fit_psf_gaussians(
 
     gmm, scale
 end
-
-
-
-
-
-
-
-
-
-
 
 
 end
