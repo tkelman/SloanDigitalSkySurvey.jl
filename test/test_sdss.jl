@@ -27,8 +27,14 @@ using PSF.unwrap_parameters
 
 raw_psf_comp =
   SDSS.load_psf_data(field_dir, run_num, camcol_num, field_num, 1);
+pixel_keep = 10:42
+
 psf = PSF.get_psf_at_point(10.0, 10.0, raw_psf_comp);
+psf = psf[pixel_keep, pixel_keep];
 psf_2 = PSF.get_psf_at_point(500.0, 500.0, raw_psf_comp);
+psf_2 = psf_2[pixel_keep, pixel_keep];
+
+
 x_mat = PSF.get_x_matrix_from_psf(psf);
 
 verbose = true
@@ -37,7 +43,7 @@ psf_max = maximum(psf)
 #matshow(psf, vmax=1.2 * psf_max); PyPlot.colorbar(); PyPlot.title("PSF")
 
 
-K = 1
+K = 2
 
 # Why is NM the best?
 # K=3 is much slower and not much better than K=2 by the looks of it.
