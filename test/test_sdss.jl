@@ -10,11 +10,23 @@ const run_num = "003900"
 const camcol_num = "6"
 const field_num = "0269"
 
-using ForwardDiff
-using Optim
 
+function test_least_squares_psf()
+  raw_psf_comp =
+    SDSS.load_psf_data(field_dir, run_num, camcol_num, field_num, 1);
+  psf = PSF.get_psf_at_point(500.0, 500.0, raw_psf_comp);
 
+  opt_result, mu_vec, sigma_vec, weight_vec =
+    PSF.fit_psf_gaussians_least_squares(
+      psf, K=2, optim_method=Optim.NelderMead());
 
+  x_mat = PSF.get_x_matrix_from_psf(psf);
+  psf_fit = PSF.render_psf(opt_result.minimum, x_mat);
+
+  @test_approx_eq sum((psf_fit - psf) .^ 2) opt_result.f_minimum
+  @test 0 < opt_result.f_minimum < 1e-4
+
+end
 
 
 function test_psf_transforms()
@@ -83,9 +95,10 @@ end
 function test_load_catalog()
   # Just check that the catalog loads.
   cat_df = SDSS.load_catalog_df(field_dir, run_num, camcol_num, field_num);
-  @test nrow(cat_df) == 805
+  @test size(cat_df, 1) == 805
 end
 
 test_load_psf()
 test_load_field()
 test_load_catalog()
+test_least_squares_psf()
