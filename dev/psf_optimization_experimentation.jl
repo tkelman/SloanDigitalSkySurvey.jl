@@ -60,7 +60,7 @@ K = 2
 # Why is NM the best?
 # K=3 is much slower and not much better than K=2 by the looks of it.
 opt_result, mu_vec, sigma_vec, weight_vec = PSF.fit_psf_gaussians(psf, K=K,
-  optim_method=Optim.NelderMead(), verbose=true);
+  optim_method=:nelder_mead, verbose=true);
 
 initial_par = opt_result.minimum
 
@@ -99,17 +99,17 @@ end
 
 @time optim_result_nelder =
     Optim.optimize(evaluate_fit, evaluate_fit_g!, evaluate_fit_h!,
-                    initial_par, method=Optim.NelderMead())
+                    initial_par, method=:nelder_mead)
 h = ForwardDiff.hessian(evaluate_fit, initial_par)
 maximum(eig(h)[1]) / minimum(eig(h)[1])
 
 opt_result_noop = PSF.fit_psf_gaussians(psf, K=2, initial_par=opt_result.minimum,
-  optim_method=Optim.NelderMead(), verbose=true, iterations=1);
+  optim_method=:nelder_mead, verbose=true, iterations=1);
 
 # Why isn't this better?  It's because NM has no derivative information and so
 # doesn't stay near the optimum.
 opt_result_2 = fit_psf_gaussians(psf_2, K=2, initial_par=opt_result.minimum,
-  optim_method=Optim.NelderMead(), verbose=true);
+  optim_method=:nelder_mead, verbose=true);
 
 
 
@@ -140,12 +140,12 @@ weight_vec = Array(Float64, 2)
 
 opt_result1, mu1, sigma1, weight1 =
   PSF.fit_psf_gaussians(psf, K=1,
-    optim_method=Optim.NelderMead(), verbose=true);
+    optim_method=:nelder_mead, verbose=true);
 gmm_psf1 = render_psf(opt_result1.minimum, x_mat);
 
 opt_result2, mu2, sigma2, weight2 =
   PSF.fit_psf_gaussians(psf - gmm_psf1, K=1,
-    optim_method=Optim.NelderMead(), verbose=true);
+    optim_method=:nelder_mead, verbose=true);
 
 mu_vec[1] = mu1[1]
 mu_vec[2] = mu2[1]

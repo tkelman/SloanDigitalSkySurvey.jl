@@ -18,7 +18,7 @@ function test_least_squares_psf()
 
   opt_result, mu_vec, sigma_vec, weight_vec =
     PSF.fit_psf_gaussians_least_squares(
-      psf, K=2, optim_method=Optim.NelderMead());
+      psf, K=2, optim_method=:nelder_mead);
 
   x_mat = PSF.get_x_matrix_from_psf(psf);
   psf_fit = PSF.render_psf(opt_result.minimum, x_mat);

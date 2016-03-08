@@ -151,7 +151,7 @@ Args:
 function fit_psf_gaussians_least_squares(
     psf::Array{Float64, 2}; initial_par=Float64[],
     grtol = 1e-9, iterations = 5000, verbose=false,
-    K=2, optim_method=Optim.NelderMead())
+    K=2, optim_method=:nelder_mead)
 
   if (any(psf .< 0))
       if verbose
