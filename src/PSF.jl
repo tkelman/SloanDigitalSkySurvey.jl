@@ -1,20 +1,18 @@
 module PSF
 
-VERSION < v"0.4.0-dev" && using Docile
-
 import ForwardDiff
 import Optim
 import GaussianMixtures
 
 
-@doc """
+"""
 All the information form a psField file needed to compute a raw PSF for a point.
 Attributes:
  - rrows: A matrix of flattened eigenimages.
  - rnrow: The number of rows in an eigenimage.
  - rncol: The number of columns in an eigenimage.
  - cmat: The coefficients of the weight polynomial (see get_psf_at_point()).
-""" ->
+"""
 immutable RawPSFComponents
     rrows::Array{Float64,2}
     rnrow::Int32
@@ -23,37 +21,16 @@ immutable RawPSFComponents
 end
 
 
-# @doc """
-# The Gaussian components of a mixture of 2d normals.  The kth component
-# is weight_vec[k] * N(mu_vec[k], sigma_vec[k]).  Each vec must have the
-# same length, K.
-# """ ->
-# type PSFGaussianComponents{T <: Number}
-#   mu_vec::Vector{Vector{T}}
-#   sigma_vec::Vector{Matrix{T}}
-#   weight_vec::Vector{T}
-#
-#   PSFGaussianComponents(
-#     mu_vec::Vector{Vector{Number}},
-#     sigma_vec::Vector{Matrix{Number}},
-#     weight_vec::Vector{Number}) = begin
-#
-#     @assert length(mu_vec) == length(sigma_vec) == length(weight_vec)
-#     new(mu_vec, sigma_vec, weight_vec)
-#   end
-# end
-
-
 # Constants to keep the optimization stable.
 const sigma_min = diagm([0.25, 0.25])
 const weight_min = 0.05
 
 
-@doc """
+"""
 Convert the parameters of a mixture of 2d Gaussians
 sum_k weight_vec[k] * N(mu_vec[k], sigma_vec[k])
 to an unconstrained vector that can be passed to an optimizer.
-""" ->
+"""
 function wrap_parameters(
     mu_vec::Vector{Vector{Float64}},
     sigma_vec::Vector{Matrix{Float64}},
@@ -79,9 +56,9 @@ function wrap_parameters(
 end
 
 
-@doc """
+"""
 Reverse wrap_parameters().
-""" ->
+"""
 function unwrap_parameters{T <: Number}(par::Vector{T})
   local K = round(Int, length(par) / 6)
   @assert K == length(par) / 6
@@ -104,7 +81,7 @@ function unwrap_parameters{T <: Number}(par::Vector{T})
 end
 
 
-@doc """
+"""
 Using a vector of mu, sigma, and weights, get the value of the GMM at x.
 
 Args:
@@ -115,7 +92,7 @@ Args:
 
 Returns:
   - The weighted sum of the component densities at x.
-""" ->
+"""
 function evaluate_psf_at_point{T <: Number}(
     x::Vector{Float64},
     mu_vec::Vector{Vector{T}},
@@ -138,21 +115,21 @@ function evaluate_psf_at_point{T <: Number}(
 end
 
 
-@doc """
+"""
 Given a psf matrix, return a matrix of the same size, where each element of
 the matrix is a 2-length vector of the [x1, x2] location of that matrix cell.
 The locations are chosen so that the scale is pixels, but the center of the
 psf is [0, 0].
-""" ->
+"""
 function get_x_matrix_from_psf(psf::Matrix{Float64})
   psf_center = Float64[ (size(psf, i) - 1) / 2 + 1 for i=1:2 ]
   Vector{Float64}[ Float64[i, j] - psf_center for i=1:size(psf, 1), j=1:size(psf, 2) ]
 end
 
 
-@doc """
+"""
 Evaluate a GMM expressed in its unconstrained form.
-""" ->
+"""
 function render_psf{T <: Number}(par::Vector{T}, x_mat::Matrix{Vector{Float64}})
   local mu_vec, sigma_vec, weight_vec
   mu_vec, sigma_vec, weight_vec = unwrap_parameters(par)
@@ -163,14 +140,14 @@ function render_psf{T <: Number}(par::Vector{T}, x_mat::Matrix{Vector{Float64}})
 end
 
 
-@doc """
+"""
 Fit a mixture of 2d Gaussians to a PSF image (evaluated at a single point).
 
 Args:
  - psf: An matrix image of the point spread function, e.g. as returned by
         get_psf_at_point.
 
-""" ->
+"""
 function fit_psf_gaussians_least_squares(
     psf::Array{Float64, 2}; initial_par=Float64[],
     grtol = 1e-9, iterations = 5000, verbose=false,
@@ -231,7 +208,7 @@ function fit_psf_gaussians_least_squares(
 end
 
 
-@doc """
+"""
 Using data from a psField file, evaluate the PSF for a source at given point.
 
 Args:
@@ -250,7 +227,7 @@ weight[k](row, col) = sum_{i,j} cmat[i, j, k] * (rcs * row) ^ i (rcs * col) ^ j
 
 This function is based on the function sdss_psf_at_points in astrometry.net:
 https://github.com/dstndstn/astrometry.net/blob/master/util/sdss_psf.py
-""" ->
+"""
 function get_psf_at_point(row::Float64, col::Float64,
                           raw_psf_comp::RawPSFComponents)
 
@@ -293,16 +270,16 @@ end
 # Methods for EM.  EM is faster, but optimizes the wrong loss function --
 # we want a least squares fit, not a log likelihood fit.
 
-@doc """
+"""
 Evaluate a gmm object at the data points x_mat.
-""" ->
+"""
 function evaluate_gmm(gmm::GaussianMixtures.GMM, x_mat::Array{Float64, 2})
     post = GaussianMixtures.gmmposterior(gmm, x_mat)
     exp(post[2]) * gmm.w;
 end
 
 
-@doc """
+"""
 Fit a mixture of 2d Gaussians to a PSF image (evaluated at a single point).
 
 Args:
@@ -321,7 +298,7 @@ Args:
 
  Note that this is a little incoherent -- we use something like log loss
  to fit the mixture and squared error loss to fit the scale.
-""" ->
+"""
 function fit_psf_gaussians(
   psf::Array{Float64, 2}; tol = 1e-9, max_iter = 500, verbose=false)
 

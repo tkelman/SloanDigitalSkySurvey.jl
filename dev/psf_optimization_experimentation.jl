@@ -1,8 +1,8 @@
-# @doc """
+# """
 # The Gaussian components of a mixture of 2d normals.  The kth component
 # is weight_vec[k] * N(mu_vec[k], sigma_vec[k]).  Each vec must have the
 # same length, K.
-# """ ->
+# """
 # type PSFGaussianComponents{T <: Number}
 #   mu_vec::Vector{Vector{T}}
 #   sigma_vec::Vector{Matrix{T}}
