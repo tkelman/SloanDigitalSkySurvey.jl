@@ -1,0 +1,178 @@
+#LyX 2.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 474
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_math auto
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+Let the PSF at 
+\begin_inset Formula $x_{ij}$
+\end_inset
+
+ be 
+\begin_inset Formula $p_{ij}$
+\end_inset
+
+.
+ We want to fit
+\begin_inset Formula 
+\begin{eqnarray*}
+L & = & \sum_{i,j}\left(p_{ij}-f\left(x_{ij}\right)\right)^{2}\\
+f\left(x_{ij}\right) & = & \sum_{k}w_{k}\phi_{k}\left(x_{ij}\right)\\
+\phi_{k}\left(x_{ij}\right) & = & \exp\left(\ell_{k}\left(x_{ij}\right)\right)\\
+\ell\left(x;\mu,\Lambda\right) & = & -\frac{1}{2}\left(x-\mu\right)^{T}\Lambda\left(x-\mu\right)+\frac{1}{2}\log\left|\Lambda\right|\\
+ & = & -\frac{1}{2}x^{T}\Lambda x+x^{T}\Lambda\mu-\frac{1}{2}\mu\Lambda\mu^{T}+\frac{1}{2}\log\left|\Lambda\right|\\
+ & = & -\frac{1}{2}\left(x_{1}^{2}\Lambda_{11}+x_{2}^{2}\Lambda_{22}+2x_{1}x_{2}\Lambda_{12}\right)+\\
+ &  & \left(x_{1}\mu_{1}\Lambda_{11}+x_{2}\mu_{2}\Lambda_{22}+\left(x_{1}\mu_{2}+x_{2}\mu_{1}\right)\Lambda_{12}\right)+\\
+ &  & -\frac{1}{2}\left(\mu_{1}^{2}\Lambda_{11}+\mu_{2}^{2}\Lambda_{22}+2\mu_{1}\mu_{2}\Lambda_{12}\right)+\\
+ &  & \frac{1}{2}\log\left(\Lambda_{11}\Lambda_{22}-\Lambda_{12}^{2}\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first and second derivatives can be read off this expression.
+ And for any parameter 
+\begin_inset Formula $\theta$
+\end_inset
+
+ other than the weights,
+\begin_inset Formula 
+\begin{eqnarray*}
+\frac{\partial L}{\partial\theta} & = & \sum_{i,j}\left(p_{ij}-f\left(x_{ij}\right)\right)\frac{\partial f\left(x_{ij}\right)}{\partial\theta}\\
+\frac{\partial f\left(x_{ij}\right)}{\partial\theta} & = & \sum_{k}w_{k}\frac{\partial\phi_{k}\left(x_{ij}\right)}{\partial\theta}\\
+\frac{\partial\phi_{k}\left(x_{ij}\right)}{\partial\theta} & = & \phi_{k}\left(x_{ij}\right)\frac{\partial\ell_{k}\left(x_{ij}\right)}{\partial\theta}
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+And also 
+\begin_inset Formula 
+\begin{eqnarray*}
+\frac{\partial f\left(x_{ij}\right)}{\partial w_{k}} & = & \phi_{k}\left(x_{ij}\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The second derivatves are
+\begin_inset Formula 
+\begin{eqnarray*}
+\frac{\partial^{2}L}{\partial\theta\partial\theta} & = & \sum_{i,j}\left(p_{ij}\frac{\partial^{2}f\left(x_{ij}\right)}{\partial\theta\partial\theta}-\frac{\partial f\left(x_{ij}\right)}{\partial\theta}\frac{\partial f\left(x_{ij}\right)}{\partial\theta}\right)\\
+\frac{\partial^{2}f\left(x_{ij}\right)}{\partial\theta\partial\theta} & = & \sum_{k}w_{k}\frac{\partial^{2}\phi_{k}\left(x_{ij}\right)}{\partial\theta\partial\theta}\\
+\frac{\partial^{2}\phi_{k}\left(x_{ij}\right)}{\partial\theta\partial\theta} & = & \phi_{k}\left(x_{ij}\right)\left(\frac{\partial\ell_{k}\left(x_{ij}\right)}{\partial\theta}\frac{\partial\ell_{k}\left(x_{ij}\right)}{\partial\theta}+\frac{\partial^{2}\ell_{k}\left(x_{ij}\right)}{\partial\theta\partial\theta}\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Finally, we need
+\begin_inset Formula 
+\begin{eqnarray*}
+S & = & \left(\begin{array}{cc}
+s_{1} & 0\\
+0 & s_{2}
+\end{array}\right)\\
+R & = & \left(\begin{array}{cc}
+1 & \rho\\
+\rho & 1
+\end{array}\right)\\
+\Lambda & = & SRS=\left(\begin{array}{cc}
+s_{1}^{2} & s_{1}s_{2}\rho\\
+s_{1}s_{2}\rho & s_{2}^{2}
+\end{array}\right)\\
+\left(\begin{array}{c}
+\Lambda_{11}\\
+\Lambda_{12}\\
+\Lambda_{22}
+\end{array}\right) & = & \left(\begin{array}{c}
+s_{1}^{2}\\
+s_{1}s_{2}\rho\\
+s_{2}^{2}
+\end{array}\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

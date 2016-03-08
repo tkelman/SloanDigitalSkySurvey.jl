@@ -1,7 +1,5 @@
 module SDSS
 
-VERSION < v"0.4.0-dev" && using Docile
-
 import DataFrames
 import FITSIO
 import Grid
@@ -41,7 +39,7 @@ end
 
 
 
-@doc """
+"""
 Load data from a psField file, which contains the point spread function.
 
 Args:
@@ -60,7 +58,7 @@ This image varies across the field, and to parameterize this variation,
 the PSF is represented as a linear combination of four "eigenimages",
 with weights that vary across the image.  See get_psf_at_point()
 for more details.
-""" ->
+"""
 function load_psf_data(field_dir, run_num, camcol_num, field_num, b)
     @assert 1 <= b <= 5
     psf_filename = "$field_dir/psField-$run_num-$camcol_num-$field_num.fit"
@@ -82,7 +80,7 @@ function load_psf_data(field_dir, run_num, camcol_num, field_num, b)
 end
 
 
-@doc """
+"""
 Load relevant data from a photoField file.
 
 Args:
@@ -95,7 +93,7 @@ Args:
 Returns:
  - band_gain: An array of gains for the five bands
  - band_dark_variance: An array of dark variances for the five bands
-""" ->
+"""
 function load_photo_field(field_dir, run_num, camcol_num, field_num)
     pf_filename = "$field_dir/photoField-$run_num-$camcol_num.fits"
     pf_fits = FITSIO.FITS(pf_filename)
@@ -112,7 +110,7 @@ function load_photo_field(field_dir, run_num, camcol_num, field_num)
 end
 
 
-@doc """
+"""
 Load the raw electron counts, calibration vector, and sky background from a field.
 
 Args:
@@ -135,7 +133,7 @@ Returns:
 
 The meaing of the frame data structures is thoroughly documented here:
 http://data.sdss3.org/datamodel/files/BOSS_PHOTOOBJ/frames/RERUN/RUN/CAMCOL/frame.html
-""" ->
+"""
 function load_raw_field(field_dir, run_num, camcol_num, field_num, b, gain)
     @assert 1 <= b <= 5
     b_letter = band_letters[b]
@@ -193,7 +191,7 @@ function load_raw_field(field_dir, run_num, camcol_num, field_num, b, gain)
 end
 
 
-@doc """
+"""
 Set the pixels in mask_img to NaN in the places specified by the fpM file.
 
 Args:
@@ -208,7 +206,7 @@ Returns:
 
  This is based on the function setMaskedPixels in astrometry.net:
  https://github.com/dstndstn/astrometry.net/
-""" ->
+"""
 function mask_image!(mask_img, field_dir, run_num, camcol_num, field_num, band;
                      python_indexing = false,
                      mask_planes = default_mask_planes)
@@ -288,7 +286,7 @@ function mask_image!(mask_img, field_dir, run_num, camcol_num, field_num, band;
     close(fpm_fits)
 end
 
-@doc """
+"""
 Read a catalog entry.
 
 Args:
@@ -307,7 +305,7 @@ Returns:
 
  This is based on the function get_sources in tractor/sdss.py:
  https://github.com/dstndstn/tractor/
-""" ->
+"""
 function load_catalog_df(field_dir, run_num, camcol_num, field_num; bandnum=3)
 
     cat_filename = "$field_dir/photoObj-$run_num-$camcol_num-$field_num.fits"
