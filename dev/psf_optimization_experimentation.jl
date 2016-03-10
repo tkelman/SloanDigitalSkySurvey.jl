@@ -59,7 +59,7 @@ K = 2
 
 # Why is NM the best?
 # K=3 is much slower and not much better than K=2 by the looks of it.
-opt_result, mu_vec, sigma_vec, weight_vec = PSF.fit_psf_gaussians(psf, K=K,
+opt_result, mu_vec, sigma_vec, weight_vec = PSF.fit_psf_gaussians_least_squares(psf, K=K,
   optim_method=:nelder_mead, verbose=true);
 
 initial_par = opt_result.minimum
@@ -103,32 +103,13 @@ end
 h = ForwardDiff.hessian(evaluate_fit, initial_par)
 maximum(eig(h)[1]) / minimum(eig(h)[1])
 
-opt_result_noop = PSF.fit_psf_gaussians(psf, K=2, initial_par=opt_result.minimum,
+opt_result_noop = PSF.fit_psf_gaussians_least_squares(psf, K=2, initial_par=opt_result.minimum,
   optim_method=:nelder_mead, verbose=true, iterations=1);
 
 # Why isn't this better?  It's because NM has no derivative information and so
 # doesn't stay near the optimum.
-opt_result_2 = fit_psf_gaussians(psf_2, K=2, initial_par=opt_result.minimum,
+opt_result_2 = fit_psf_gaussians_least_squares(psf_2, K=2, initial_par=opt_result.minimum,
   optim_method=:nelder_mead, verbose=true);
-
-
-
-############# EM initialization
-gmm, scale = PSF.fit_psf_gaussians_em(psf);
-
-em_mu_vec = Array(Vector{Float64}, 2)
-em_sigma_vec = Array(Matrix{Float64}, 2)
-em_weight_vec = Array(Float64, 2)
-
-for k=1:2
-  em_mu_vec[k] = gmm.μ[k,:][:]
-  em_sigma_vec[k] = inv(GaussianMixtures.precision(gmm.Σ[k]))
-  em_weight_vec[k] = gmm.w[k] * scale
-end
-em_par = PSF.wrap_parameters(em_mu_vec, em_sigma_vec, em_weight_vec)
-@time optim_result_newton_em =
-  Optim.optimize(evaluate_fit, evaluate_fit_g!, evaluate_fit_h!,
-                em_par, method=Optim.Newton())
 
 
 
@@ -139,12 +120,12 @@ sigma_vec = Array(Matrix{Float64}, 2)
 weight_vec = Array(Float64, 2)
 
 opt_result1, mu1, sigma1, weight1 =
-  PSF.fit_psf_gaussians(psf, K=1,
+  PSF.fit_psf_gaussians_least_squares(psf, K=1,
     optim_method=:nelder_mead, verbose=true);
 gmm_psf1 = render_psf(opt_result1.minimum, x_mat);
 
 opt_result2, mu2, sigma2, weight2 =
-  PSF.fit_psf_gaussians(psf - gmm_psf1, K=1,
+  PSF.fit_psf_gaussians_least_squares(psf - gmm_psf1, K=1,
     optim_method=:nelder_mead, verbose=true);
 
 mu_vec[1] = mu1[1]
@@ -174,7 +155,7 @@ initial_par = PSF.wrap_parameters(mu_vec, sigma_vec, weight_vec)
 
 
 
-# opt_result = fit_psf_gaussians(psf, initial_par=opt_result.minimum, K=2,
+# opt_result = fit_psf_gaussians_least_squares(psf, initial_par=opt_result.minimum, K=2,
 #   optim_method=Optim.AcceleratedGradientDescent(), verbose=true, iterations=20);
 #
 
@@ -214,7 +195,7 @@ PyPlot.close("all")
 psf_max = maximum(psf)
 matshow(psf, vmax=1.2 * psf_max); PyPlot.colorbar(); PyPlot.title("PSF")
 
-opt_result_1 = fit_psf_gaussians(psf);
+opt_result_1 = fit_psf_gaussians_least_squares(psf);
 unwrap_parameters(opt_result_1.minimum)
 gmm_psf1 = render_psf(opt_result_1.minimum);
 psf_residual1 = psf - gmm_psf1;
@@ -224,7 +205,7 @@ matshow(psf_residual1, vmax=resid_max, vmin=-resid_max)
 PyPlot.colorbar(); PyPlot.title("residual1")
 
 
-opt_result_2 = fit_psf_gaussians(psf_residual1);
+opt_result_2 = fit_psf_gaussians_least_squares(psf_residual1);
 unwrap_parameters(opt_result_2.minimum)
 gmm_psf2 = gmm_psf1 + render_psf(opt_result_2.minimum);
 psf_residual2 = psf - gmm_psf2;
@@ -232,7 +213,7 @@ psf_residual2 = psf - gmm_psf2;
 matshow(psf_residual2, vmax=resid_max, vmin=-resid_max)
 PyPlot.colorbar(); PyPlot.title("residual2")
 
-opt_result_3 = fit_psf_gaussians(psf_residual2);
+opt_result_3 = fit_psf_gaussians_least_squares(psf_residual2);
 unwrap_parameters(opt_result_3.minimum)
 gmm_psf3 = gmm_psf2 + render_psf(opt_result_3.minimum);
 psf_residual3 = psf - gmm_psf3;
