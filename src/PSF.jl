@@ -165,8 +165,6 @@ function fit_psf_gaussians_least_squares(
   if length(initial_par) == 0
     if verbose
       println("Using default initialization.")
-    else
-      println("Using user-specified initialization.")
     end
     psf_starting_mean  =
       sum([ psf[i, j]  * x_mat[i, j] for
