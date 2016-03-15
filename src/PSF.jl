@@ -148,7 +148,7 @@ Args:
 """
 function fit_psf_gaussians_least_squares(
     psf::Array{Float64, 2}; initial_par=Float64[],
-    grtol = 1e-9, iterations = 5000, verbose=false,
+    grtol = 1e-9, ftol = 1e-9, iterations = 5000, verbose=false,
     K=2, optim_method=:nelder_mead)
 
   if (any(psf .< 0))
@@ -198,7 +198,7 @@ function fit_psf_gaussians_least_squares(
 
   optim_result =
     Optim.optimize(evaluate_fit, initial_par, method=optim_method,
-                   iterations=iterations, grtol=grtol)
+                   iterations=iterations, grtol=grtol, ftol=ftol)
 
   optim_result, unwrap_parameters(optim_result.minimum)...
 end
