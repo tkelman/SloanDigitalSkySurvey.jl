@@ -5,7 +5,7 @@ using Base.Test
 import SloanDigitalSkySurvey: SDSS, PSF
 
 const field_dir =
-  joinpath(Pkg.dir("SloanDigitalSkySurvey"), "dat", "sample_field")
+  joinpath(dirname(@__FILE__), "..", "dat", "sample_field")
 const run_num = "003900"
 const camcol_num = "6"
 const field_num = "0269"

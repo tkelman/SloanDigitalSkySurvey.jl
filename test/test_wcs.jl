@@ -2,7 +2,7 @@ println("Running WCSUtils tests.")
 
 import WCS: world_to_pix, pix_to_world
 
-const dat_dir = joinpath(Pkg.dir("SloanDigitalSkySurvey"), "dat")
+const dat_dir = joinpath(dirname(@__FILE__), "..", "dat")
 
 "Test that the identity WCSTransform works as expected."
 function test_id_wcs()
